@@ -19797,19 +19797,14 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var React = __webpack_require__(2);
-	
 	var DoneButton = __webpack_require__(163);
-	
 	var TodoDetailView = __webpack_require__(164);
 	
 	var ToDoListItem = React.createClass({
 	  displayName: 'ToDoListItem',
 	
 	  getInitialState: function () {
-	
-	    return { visible: false
-	
-	    };
+	    return { visible: false };
 	  },
 	
 	  handleDestroy: function (id, e) {
@@ -19822,8 +19817,9 @@
 	
 	  render: function () {
 	    var extendedDisplay = "";
+	
 	    if (this.state.visible) {
-	      extendedDisplay = React.createElement(TodoDetailView, { id: this.props.id, body: this.props.body });
+	      extendedDisplay = React.createElement(TodoDetailView, { todoId: this.props.id, body: this.props.body });
 	    }
 	
 	    return React.createElement(
@@ -19834,13 +19830,12 @@
 	        { onClick: this.toggleVisibility },
 	        this.props.title
 	      ),
-	      React.createElement(DoneButton, { id: this.props.id, done: this.props.done }),
+	      React.createElement(DoneButton, { todoId: this.props.id, done: this.props.done }),
 	      React.createElement('br', null),
 	      extendedDisplay,
 	      React.createElement('br', null)
 	    );
 	  }
-	
 	});
 	
 	module.exports = ToDoListItem;
@@ -19897,23 +19892,19 @@
 	var DoneButton = React.createClass({
 	  displayName: 'DoneButton',
 	
+	  handleDone: function (e) {
+	    e.preventDefault();
+	    ToDoStore.toggleDone(this.props.todoId);
+	  },
+	
 	  render: function () {
-	
 	    var buttonText = this.props.done ? "Undo" : "Done";
-	
 	    return React.createElement(
 	      'button',
 	      { type: 'submit', onClick: this.handleDone },
 	      buttonText
 	    );
-	  },
-	
-	  handleDone: function (e) {
-	
-	    e.preventDefault();
-	    ToDoStore.toggleDone(this.props.id);
 	  }
-	
 	});
 	
 	module.exports = DoneButton;
@@ -19923,26 +19914,37 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var React = __webpack_require__(2);
-	
 	var DoneButton = __webpack_require__(163);
-	
-	// var StepStore = require('../stores/step_store.js')
+	var StepStore = __webpack_require__(165);
 	
 	var TodoDetailView = React.createClass({
 	  displayName: 'TodoDetailView',
 	
-	  handleDestroy: function (id, e) {
-	    debugger;
-	    ToDoStore.destroy(id);
+	  getInitialState: function () {
+	    return { stepList: [] };
 	  },
 	
-	  // getSteps: function() {
-	  //   StepStore.fetch(this.props.id)
-	  //
-	  // },
+	  getSteps: function () {
+	    this.setState({ stepList: StepStore.all(this.props.todoId) });
+	  },
+	
+	  componentDidMount: function () {
+	    ToDoStore.addChangeHandler(this.setList);
+	    ToDoStore.fetch(this.props.todoId);
+	  },
+	
+	  componentWillUnmount: function () {
+	    ToDoStore.removeChangeHandler(this.setList);
+	  },
+	
+	  handleDestroy: function (e) {
+	    e.preventDefault();
+	    var todoId = this.props.todoId;
+	    ToDoStore.destroy(todoId);
+	  },
 	
 	  render: function () {
-	    // var steps = getSteps();
+	    var steps = getSteps();
 	
 	    return React.createElement(
 	      'div',
@@ -19952,14 +19954,132 @@
 	        null,
 	        this.props.body
 	      ),
-	      React.createElement('input', { type: 'submit', value: 'Delete Item', onClick: this.handleDestroy.bind(this, this.props.id) }),
-	      React.createElement('div', null)
+	      React.createElement(
+	        'div',
+	        null,
+	        this.state.stepList.map(function (step) {
+	          return React.createElement(
+	            'div',
+	            null,
+	            React.createElement(Step, { description: step.description, todoId: step.todo_id, id: step.id })
+	          );
+	        })
+	      ),
+	      React.createElement('input', { type: 'submit', value: 'Delete Item', onClick: this.handleDestroy })
 	    );
 	  }
-	
 	});
 	
 	module.exports = TodoDetailView;
+	
+	// <div>
+	//   {this.props.body}
+	// </div>
+	// {return this.state.stepList.map(function(step){return <div><Step description={step.description} todoId={step.todo_id} id={step.id}/></div>})}
+	// <input type="submit" value="Delete Item" onClick={this.handleDestroy.bind}/>
+	// <div>
+	// </div>
+
+/***/ },
+/* 165 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var React = __webpack_require__(2);
+	var ToDoStore = __webpack_require__(1);
+	
+	var _steps = {};
+	var _callbacks = [];
+	
+	var StepStore = {
+	  changed: function () {
+	    _callbacks.forEach(function (cb) {
+	      cb();
+	    });
+	  },
+	
+	  addChangeHandler: function (ch) {
+	    _callbacks.push(ch);
+	  },
+	
+	  removeChangeHandler: function (ch) {
+	    var idx = -1;
+	    for (var i = 0; i < _callbacks.length; i++) {
+	      if (_callbacks[i] === ch) {
+	        idx = i;
+	      }
+	    }
+	    if (idx != -1) {
+	      _callbacks.splice(idx, 1);
+	    }
+	  },
+	
+	  all: function () {
+	    return _steps;
+	  },
+	
+	  fetch: function (todoId) {
+	    $.get("/api/todos/" + todoId + "/steps", {}, function (result) {
+	      _steps = result;
+	      StepStore.changed();
+	    });
+	  },
+	
+	  create: function (todoId, step) {
+	    $.post("/api/todos/" + todoId + "/steps", { step: step }, function (step) {
+	      _steps[todoId].push(step);
+	      StepStore.changed();
+	    });
+	  },
+	
+	  destroy: function (todoId, id) {
+	    var idx = -1;
+	    for (var i = 0; i < _steps.length; i++) {
+	      if (_steps[todoId][i].id === id) {
+	        idx = i;
+	        break;
+	      }
+	    }
+	
+	    if (idx != -1) {
+	      $.ajax({
+	        url: "/api/todos/" + todoId + "/steps",
+	        type: "DELETE",
+	        success: function () {
+	          _steps[todoId].splice(idx, 1);
+	          ToDoStore.changed();
+	        }
+	      });
+	    }
+	  },
+	
+	  toggleDone: function (todoId, id) {
+	    var idx = -1;
+	    for (var i = 0; i < _steps.length; i++) {
+	      if (_steps[todoId][i].id === id) {
+	        idx = i;
+	        break;
+	      }
+	    }
+	    if (idx != -1) {
+	      var step = _steps[todoId][idx];
+	      step.done = !step.done;
+	      $.ajax({
+	        url: "/api/todos/" + todoId + "/steps",
+	        type: "PATCH",
+	        data: { step: step },
+	        success: function () {
+	          _steps[todoId][idx] = step;
+	          StepStore.changed();
+	        },
+	        error: function () {
+	          console.log("This didn't work.");
+	        }
+	      });
+	    }
+	  }
+	};
+	
+	module.exports = StepStore;
 
 /***/ }
 /******/ ]);

@@ -27,7 +27,7 @@ var ToDoList = React.createClass({
       <div>
         <div>
             {
-              listItems.map(function(toDoItem){return <ToDoListItem title = {toDoItem.title} body = {toDoItem.body} id = {toDoItem.id} done = {toDoItem.done}/>})
+              listItems.map(function(toDoItem){return <ToDoListItem title={toDoItem.title} body={toDoItem.body} id={toDoItem.id} done={toDoItem.done}/>})
             }
         </div>
 

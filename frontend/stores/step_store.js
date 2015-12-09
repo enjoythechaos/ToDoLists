@@ -36,14 +36,14 @@ var StepStore = {
       _steps = result;
       StepStore.changed();
     })
-  }
+  },
 
   create: function(todoId, step) {
     $.post("/api/todos/" + todoId + "/steps", {step: step}, function(step){
       _steps[todoId].push(step);
       StepStore.changed();
     })
-  }
+  },
 
   destroy: function(todoId, id) {
     var idx = -1;
